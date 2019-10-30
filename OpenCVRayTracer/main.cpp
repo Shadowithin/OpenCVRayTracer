@@ -37,42 +37,6 @@ struct Material {
 	float specular_exponent;
 };
 
-struct Triangle {
-	Vec3f plane_normal;
-	Vec3f plane_points[3];
-
-	Triangle(const Vec3f& n,const Vec3f *p) : plane_normal(n) {
-		for (int i = 0; i < 3; i++) plane_points[i] = p[i];
-	}
-
-	void operator()(const Vec3f& n, const Vec3f *p) {
-		plane_normal = n;
-		for (int i = 0; i < 3; i++) plane_points[i] = p[i];
-	}
-
-	Vec3f barycentric(const Vec3f &A, const Vec3f &B, const Vec3f &C, Vec3f &P) const {
-		Vec3f s[2];
-		for (int i = 1; i >= 0; i--) {
-			s[i][0] = C[i] - A[i];
-			s[i][1] = B[i] - A[i];
-			s[i][2] = A[i] - P[i];
-		}
-		Vec3f u = s[0].cross(s[1]);
-		Vec3f ans = Vec3f(1, -1, 1);
-		if (abs(u[2]) > 1e-2)
-			ans = Vec3f(1.f - (u[0] + u[1]) / u[2], u[1] / u[2], u[0] / u[2]);
-		return ans;
-	}
-
-	bool ray_intersect(const Vec3f &orig, const Vec3f &dir, float &t0) const {
-		float d = -dir.dot(plane_normal) / norm(dir);
-		Vec3f pt = orig + dir*d;
-		Vec3f bc = barycentric(plane_points[0], plane_points[1], plane_points[2], pt);
-		if (bc[0] < 0 || bc[1] < 0 || bc[2] < 0) return false;
-		else return true;
-	}
-};
-
 struct Sphere {
 	Vec3f center;
 	float radius;
@@ -125,20 +89,33 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
 		}
 	}
 
+	float obj_dist = std::numeric_limits<float>::max();
+	for (int i = 0; i < model->nfaces(); i++) {
+		float dist_o;
+		if (model->ray_intersect(i, orig, dir, dist_o) && dist_o < obj_dist && dist_o < spheres_dist) {
+			obj_dist = dist_o;
+			hit = orig + dir * dist_o;
+			Vec3f edge1 = model->vert(i, 1) - model->vert(i, 0);
+			Vec3f edge2 = model->vert(i, 2) - model->vert(i, 0);
+			N = normalize(edge1.cross(edge2));
+			material = Material(1.5, Vec4f(0.0, 0.5, 0.1, 0.8), Vec3f(1.0, 1.0, 1.0), 125.);
+		}
+	}
+
+
 	float floor_dist = std::numeric_limits<float>::max();
 	if (fabs(dir[1]) > 0) {
 		float d = -(orig[1] + 4) / dir[1];
 		Vec3f pt = orig + dir*d;
-		if (d>0 && d < spheres_dist && fabs(pt[0]) < 10 && pt[2]<-10 && pt[2]>-30) {
+		if (d>0 && d < spheres_dist && d < obj_dist && fabs(pt[0]) < 10 && pt[2]<-10 && pt[2]>-30) {
 			floor_dist = d;
 			hit = pt;
 			N = Vec3f(0, 1, 0);
 			material.diffuse_color = (int(.5*hit[0]+10 ) + int(.5*hit[2])) & 1 ? Vec3f(.3, .3, .3) : Vec3f(.3, .2, .1);
-			return floor_dist < 1000;
 		}
 	}
 
-	return spheres_dist < 1000;
+	return min(min(spheres_dist, floor_dist), obj_dist) < 1000;
 }
 
 Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const vector<Sphere> &spheres, const vector<Light> &lights, size_t depth=0) {
@@ -160,18 +137,11 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const vector<Sphere> &sphere
 	Vec3f refract_orig = refract_dir.dot(N) > 0 ? point + N * 1e-3 : point - N * 1e-3;
 	Vec3f refract_color = cast_ray(refract_orig, refract_dir, spheres, lights, depth + 1);
 
-	
-	for (int i = 0; i < model->nfaces(); i++) {
-		Vec3f face_coords[3];
-		for (int j = 0; j < 3; j++)
-			
-	}
-
 	float diffuse_light_intensity = 0;
 	Vec3f specular_light_intensity = Vec3f(0, 0, 0);
 	for (auto &light : lights){
 		Vec3f light_dir = normalize(light.position - point);
-		Vec3f shadow_orig = point + N * 1e-3;
+		Vec3f shadow_orig = light_dir.dot(N) > 0 ? point + N * 1e-3 : point - N * 1e-3;
 		Vec3f point_shadow, N_shadow;
 		Material material_shadow;
 		if (scene_intersect(shadow_orig, light_dir, spheres, point_shadow, N_shadow, material_shadow)) continue;
@@ -179,7 +149,7 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const vector<Sphere> &sphere
 		specular_light_intensity += light.color * powf(max(0.f, -dir.dot(reflect(-light_dir, N))), material.specular_exponent);
 	}
 
-	return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + specular_light_intensity * material.albedo[1]  + reflect_color * material.albedo[2] + refract_color * material.albedo[3];
+	return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + specular_light_intensity * material.albedo[1] + reflect_color * material.albedo[2] + refract_color * material.albedo[3]  ;
 }
 
 void render(const vector<Sphere> &spheres, const vector<Light> &lights, Mat &frame) {
@@ -226,8 +196,6 @@ int main()
 	//flip(frame, frame, 0);
 	imshow("frame", frame);
 	imwrite("frame.jpg", frame);
-	delete model;
-	model = nullptr;
 	waitKey(0);
 	system("pause");
 	return 0;
