@@ -5,7 +5,6 @@
 #include <cmath>
 #include <limits>
 #include <opencv.hpp>
-#include "model.h"
 
 using namespace std;
 using namespace cv;
@@ -17,8 +16,6 @@ const int fov = M_PI/ 2.;
 Mat background;
 int bkwidth;
 int bkheight;
-
-Model *model = nullptr;
 
 struct Light {
 	Light(const Vec3f &p, const float &i, const Vec3f &c) : position(p), intensity(i), color(c){}
@@ -35,20 +32,6 @@ struct Material {
 	Vec4f albedo;
 	Vec3f diffuse_color;
 	float specular_exponent;
-};
-
-struct Triangle {
-	Vec3f plane_normal;
-	Vec3f plane_points[3];
-
-	Triangle(const Vec3f& n,const Vec3f *p) : plane_normal(n) {
-		for (int i = 0; i < 3; i++) plane_points[i] = p[i];
-	}
-
-	bool ray_intersect(const Vec3f &orig, const Vec3f &dir, float &t0) const {
-		float d = -dir.dot(plane_normal) / norm(dir);
-		Vec3f pt = orig + dir*d;
-	}
 };
 
 struct Sphere {
