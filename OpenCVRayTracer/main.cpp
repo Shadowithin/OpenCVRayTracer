@@ -90,17 +90,20 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
 	}
 
 	float obj_dist = std::numeric_limits<float>::max();
-	for (int i = 0; i < model->nfaces(); i++) {
-		float dist_o;
-		if (model->ray_intersect(i, orig, dir, dist_o) && dist_o < obj_dist && dist_o < spheres_dist) {
-			obj_dist = dist_o;
-			hit = orig + dir * dist_o;
-			Vec3f edge1 = model->vert(i, 1) - model->vert(i, 0);
-			Vec3f edge2 = model->vert(i, 2) - model->vert(i, 0);
-			N = normalize(edge1.cross(edge2));
-			material = Material(1.5, Vec4f(0.0, 0.5, 0.1, 0.8), Vec3f(1.0, 1.0, 1.0), 125.);
+	if (model->ray_bbox_intersect(orig, dir)) {
+		for (int i = 0; i < model->nfaces(); i++) {
+			float dist_o;
+			if (model->ray_triangle_intersect(i, orig, dir, dist_o) && dist_o < obj_dist && dist_o < spheres_dist) {
+				obj_dist = dist_o;
+				hit = orig + dir * dist_o;
+				Vec3f edge1 = model->vert(i, 1) - model->vert(i, 0);
+				Vec3f edge2 = model->vert(i, 2) - model->vert(i, 0);
+				N = normalize(edge1.cross(edge2));
+				material = Material(1.5, Vec4f(0.0, 0.5, 0.1, 0.8), Vec3f(1.0, 1.0, 1.0), 125.);
+			}
 		}
 	}
+	
 
 
 	float floor_dist = std::numeric_limits<float>::max();

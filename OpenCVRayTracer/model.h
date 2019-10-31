@@ -20,7 +20,8 @@ public:
 	cv::Vec3i face(int idx);
 
 	void get_bbox(cv::Vec3f &mincorner, cv::Vec3f &maxcorner);
-	bool ray_intersect(const int &fi, const cv::Vec3f &orig, const cv::Vec3f &dir, float &tnear);
+	bool ray_bbox_intersect(const cv::Vec3f &orig, const cv::Vec3f &dir);
+	bool ray_triangle_intersect(const int &fi, const cv::Vec3f &orig, const cv::Vec3f &dir, float &tnear);
 };
 
 #endif //__MODEL_H__

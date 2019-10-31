@@ -71,7 +71,7 @@ void Model::get_bbox(Vec3f &mincorner, Vec3f &maxcorner) {
 	std::cerr << "bbox: [" << mincorner << " : " << maxcorner << "]" << std::endl;
 }
 
-bool Model::ray_intersect(const int &fi, const Vec3f &orig, const Vec3f &dir, float &tnear) {
+bool Model::ray_triangle_intersect(const int &fi, const Vec3f &orig, const Vec3f &dir, float &tnear) {
 	Vec3f edge1 = vert(fi, 1) - vert(fi, 0);
 	Vec3f edge2 = vert(fi, 2) - vert(fi, 0);
 	Vec3f pvec = dir.cross(edge2);
@@ -88,4 +88,17 @@ bool Model::ray_intersect(const int &fi, const Vec3f &orig, const Vec3f &dir, fl
 
 	tnear = edge2.dot(qvec) * (1. / det);
 	return tnear > 1e-5;
+}
+
+bool Model::ray_bbox_intersect(const Vec3f &orig, const Vec3f &dir) {
+	float tmin = -std::numeric_limits<float>::max();
+	float tmax = std::numeric_limits<float>::max();
+	for (int i = 0; i < 3; i++){
+		Vec3f normal = Vec3f(0, 0, 0);
+		normal[i] = 1;
+		float t1 = -(-mincorner[i] + normal.dot(orig)) / (normal.dot(dir));
+		float t2 = -(-maxcorner[i] + normal.dot(orig)) / (normal.dot(dir));
+		t1 > t2 ? tmax = min(t1, tmax), tmin = min(t2, tmin) : tmax = min(t2, tmax), tmin = min(t1, tmin);
+	}
+	return tmin < tmax;
 }
